@@ -1,0 +1,131 @@
+.container {
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  padding: 12px 16px;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.container:hover {
+  background-color: #F9F9F9;
+}
+
+.imageContainer {
+  position: relative;
+}
+
+.image {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  background-color: #F5F5F5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholderIcon {
+  font-size: 28px;
+}
+
+.itemCountBadge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background-color: #007AFF;
+  color: #FFFFFF;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.content {
+  flex: 1;
+  margin-left: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.orderNumber {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C1C1E;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unreadBadge {
+  background-color: #FF3B30;
+  color: #FFFFFF;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+  margin-left: 8px;
+}
+
+.itemNames {
+  font-size: 13px;
+  color: #8E8E93;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.statusBadge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1C1C1E;
+  margin-left: 8px;
+}
+
+.date {
+  font-size: 11px;
+  color: #C7C7CC;
+  margin-top: 4px;
+}
+
+.chevron {
+  margin-left: 8px;
+}
+
+.chevronIcon {
+  font-size: 24px;
+  color: #C7C7CC;
+}

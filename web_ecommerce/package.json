@@ -1,0 +1,34 @@
+{
+  "name": "@rivium/web-chat-ecommerce-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RiviumChat Web E-commerce Example - Demonstrates buyer-seller chat integration",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx"
+  },
+  "dependencies": {
+    "@rivium/push-web": "^0.1.0",
+    "@rivium/web-chat": "file:../",
+    "@rivium/web-chat-ui": "file:../rivium-chat-ui",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^8.53.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
+  }
+}

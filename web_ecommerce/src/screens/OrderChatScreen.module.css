@@ -1,0 +1,202 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #FFFFFF;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E5E5EA;
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.backButton:hover {
+  opacity: 0.7;
+}
+
+.backIcon {
+  font-size: 32px;
+  color: #007AFF;
+  margin-right: 4px;
+  line-height: 1;
+}
+
+.backText {
+  font-size: 17px;
+  color: #007AFF;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.userAvatarContainer {
+  position: relative;
+}
+
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background-color: #5856D6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.userAvatarText {
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.presenceIndicatorContainer {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  max-width: 120px;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userStatus {
+  font-size: 12px;
+  color: #8E8E93;
+}
+
+.typingContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typingText {
+  font-size: 12px;
+  color: #007AFF;
+  font-style: italic;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.headerButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  padding: 8px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.headerButton:hover {
+  opacity: 1;
+}
+
+.chatContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.connectionBanner {
+  position: fixed;
+  top: 100px;
+  left: 0;
+  right: 0;
+  background-color: #FF9500;
+  padding: 8px;
+  text-align: center;
+  z-index: 100;
+}
+
+.connectionText {
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Search Results Styles */
+.searchResultsList {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.searchResultItem {
+  margin-bottom: 8px;
+  border-radius: 8px;
+  padding: 4px;
+  transition: background-color 0.2s;
+}
+
+.searchResultHighlighted {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.searchEmptyContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.searchEmptyIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.searchEmptyTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0 0 8px 0;
+}
+
+.searchEmptySubtitle {
+  font-size: 15px;
+  color: #8E8E93;
+  margin: 0;
+  text-align: center;
+}
