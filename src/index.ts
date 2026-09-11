@@ -36,8 +36,10 @@ export type {
   RoomUpdatedEvent,
   SubscriptionStateEvent,
   TypingEvent,
+  AuthErrorEvent,
 } from './events/events';
 
 // Errors & Types
 export { RiviumChatError } from './services/ApiService';
+export type { TokenProvider } from './services/TokenManager';
 export type { Mention, SearchResult, UploadResult } from './services/ApiService';

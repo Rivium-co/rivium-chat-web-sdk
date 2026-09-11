@@ -1,4 +1,6 @@
 import { SDK_CONFIG, type NormalizedConfig } from '../RiviumChatConfig';
+import type { AuthErrorEvent } from '../events/events';
+import type { TokenManager } from './TokenManager';
 import type {
   Attachment,
   Message,
@@ -41,7 +43,11 @@ export interface Mention {
 export class ApiService {
   private config: NormalizedConfig;
 
-  constructor(config: NormalizedConfig) {
+  constructor(
+    config: NormalizedConfig,
+    private readonly tokens?: TokenManager,
+    private readonly onAuthError?: (event: AuthErrorEvent) => void,
+  ) {
     this.config = config;
   }
 
@@ -326,28 +332,51 @@ export class ApiService {
 
   // ─── Private Helpers ─────────────────────────────────────────────────
 
+  /** Gets a user token, reporting a failing tokenProvider as an auth error. */
+  private async userToken(get: () => Promise<string>): Promise<string> {
+    try {
+      return await get();
+    } catch (error) {
+      this.onAuthError?.({ code: 'token_provider_failed', message: 'tokenProvider failed', error });
+      throw new RiviumChatError('tokenProvider failed', undefined, String(error));
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${SDK_CONFIG.baseUrl}/api/v1${path}`;
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-API-Key': this.config.apiKey,
-      'X-User-ID': this.config.userId,
+    const send = async (token?: string): Promise<Response> => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.config.apiKey,
+        'X-User-ID': this.config.userId,
+      };
+      if (token) headers['X-User-Token'] = token;
+      const options: RequestInit = { method, headers };
+      if (body && method !== 'GET') {
+        options.body = JSON.stringify(body);
+      }
+      return fetch(url, options);
     };
 
-    const options: RequestInit = {
-      method,
-      headers,
-    };
-
-    if (body && method !== 'GET') {
-      options.body = JSON.stringify(body);
+    let response: Response;
+    if (this.tokens) {
+      response = await send(await this.userToken(() => this.tokens!.get()));
+      // An expired token is routine: fetch a new one and replay the request
+      // once. The user never sees it.
+      if (response.status === 401 && (await authErrorCode(response.clone())) === 'token_expired') {
+        response = await send(await this.userToken(() => this.tokens!.refresh()));
+      }
+    } else {
+      response = await send();
     }
-
-    const response = await fetch(url, options);
 
     if (!response.ok) {
       const errorData = await response.text();
+      const code = response.status === 401 ? parseAuthCode(errorData) : undefined;
+      if (code && this.tokens) {
+        this.onAuthError?.({ code, message: parseMessage(errorData) });
+      }
       throw new RiviumChatError(
         `HTTP error ${response.status}: ${response.statusText}`,
         response.status,
@@ -363,6 +392,29 @@ export class ApiService {
 
     return JSON.parse(text) as T;
   }
+}
+
+/** The identity error code (`token_*`) of a 401 body, if any. */
+function parseAuthCode(text: string): string | undefined {
+  try {
+    const code = JSON.parse(text)?.code;
+    return typeof code === 'string' && code.startsWith('token_') ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseMessage(text: string): string {
+  try {
+    const message = JSON.parse(text)?.message;
+    return typeof message === 'string' ? message : 'Authentication failed';
+  } catch {
+    return 'Authentication failed';
+  }
+}
+
+async function authErrorCode(response: Response): Promise<string | undefined> {
+  return parseAuthCode(await response.text());
 }
 
 /** Error thrown by RiviumChat SDK operations. */

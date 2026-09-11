@@ -6,6 +6,8 @@ export const SDK_CONFIG = {
   centrifugoUrl: 'wss://ws-chat.rivium.co/connection/websocket',
 } as const;
 
+import type { TokenProvider } from './services/TokenManager';
+
 /** Configuration for RiviumChat SDK. */
 export interface RiviumChatConfig {
   /** Your RiviumChat API key */
@@ -16,6 +18,21 @@ export interface RiviumChatConfig {
 
   /** Optional user info (displayName, locale, etc.) */
   userInfo?: Record<string, string>;
+
+  /**
+   * Recommended. Returns a user token issued by **your server**, which calls
+   * `POST https://chat.rivium.co/api/v1/users/token` with its server secret
+   * (never put the secret in the app). Every request then proves who the user
+   * is, so nobody holding the public API key can act as another user.
+   *
+   * The SDK calls it on connect, shortly before the token expires, and when
+   * the server reports an expired token — refreshes are invisible to the
+   * user. `userInfo` is ignored when set: your server passes it with the token.
+   *
+   * Without it the SDK uses the legacy mode (API key + userId), which a
+   * project can disable in Rivium Console.
+   */
+  tokenProvider?: TokenProvider;
 }
 
 /** Internal normalized config type. */
@@ -23,6 +40,7 @@ export interface NormalizedConfig {
   apiKey: string;
   userId: string;
   userInfo: Record<string, string>;
+  tokenProvider?: TokenProvider;
 }
 
 /** Validate and normalize configuration. */
@@ -38,5 +56,6 @@ export function normalizeConfig(config: RiviumChatConfig): NormalizedConfig {
     apiKey: config.apiKey,
     userId: config.userId,
     userInfo: config.userInfo ?? {},
+    tokenProvider: config.tokenProvider,
   };
 }

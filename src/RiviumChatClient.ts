@@ -1,6 +1,7 @@
 import { type RiviumChatConfig, type NormalizedConfig, normalizeConfig } from './RiviumChatConfig';
 import { ApiService, type Mention, type SearchResult, type UploadResult } from './services/ApiService';
 import { RealtimeService } from './services/RealtimeService';
+import { TokenManager } from './services/TokenManager';
 import type {
   Attachment,
   Message,
@@ -46,10 +47,17 @@ export class RiviumChatClient {
 
   constructor(config: RiviumChatConfig) {
     this.config = normalizeConfig(config);
-    this.apiService = new ApiService(this.config);
+    const tokens = this.config.tokenProvider ? new TokenManager(this.config.tokenProvider) : undefined;
+    this.apiService = new ApiService(this.config, tokens, (event) =>
+      this.realtimeService.emit('authError', event),
+    );
     this.realtimeService = new RealtimeService(
       this.config,
-      () => this.apiService.getCentrifugoToken(this.config.userId, this.config.userInfo),
+      // With a tokenProvider the same user token authenticates REST and the
+      // realtime connection; centrifuge asks again before it expires.
+      tokens
+        ? () => tokens.get()
+        : () => this.apiService.getCentrifugoToken(this.config.userId, this.config.userInfo),
     );
   }
 

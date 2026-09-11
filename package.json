@@ -1,6 +1,6 @@
 {
   "name": "@rivium/web-chat",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "RiviumChat JavaScript/TypeScript SDK for web applications",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

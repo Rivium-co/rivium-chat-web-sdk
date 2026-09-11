@@ -87,6 +87,20 @@ export interface ConnectionStateEvent {
 }
 
 /** Event types for the RiviumChat client. */
+/**
+ * The server refused the user's identity and a token refresh cannot fix it:
+ * the token was revoked or invalid, the project requires a token, or your
+ * tokenProvider failed. Typically: send the user to login.
+ *
+ * `code`: `token_revoked`, `token_invalid`, `token_required`, `token_expired`
+ * (after a failed refresh) or `token_provider_failed`.
+ */
+export interface AuthErrorEvent {
+  code: string;
+  message: string;
+  error?: unknown;
+}
+
 export type RiviumChatEventMap = {
   connectionState: ConnectionStateEvent;
   message: MessageEvent;
@@ -100,4 +114,5 @@ export type RiviumChatEventMap = {
   subscriptionState: SubscriptionStateEvent;
   recoveryFailed: RecoveryFailedEvent;
   roomUpdated: RoomUpdatedEvent;
+  authError: AuthErrorEvent;
 };

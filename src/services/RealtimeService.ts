@@ -183,8 +183,8 @@ export class RealtimeService {
     }
   }
 
-  /** Emit event to listeners. */
-  private emit<K extends keyof RiviumChatEventMap>(event: K, data: RiviumChatEventMap[K]): void {
+  /** Emit event to listeners. @internal */
+  emit<K extends keyof RiviumChatEventMap>(event: K, data: RiviumChatEventMap[K]): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach((callback) => callback(data));
