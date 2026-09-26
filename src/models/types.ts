@@ -52,6 +52,17 @@ export interface Room {
   createdAt?: string;
   updatedAt?: string;
   participants: Participant[];
+  /**
+   * The most recent message in the room, or null when there are none. Sent by
+   * `GET /rooms`, so a chat list can show a preview without loading each
+   * room's messages.
+   */
+  lastMessage?: Message | null;
+  /**
+   * Messages from other people that arrived after this user last read the
+   * room. Sent by `GET /rooms`; 0 when everything has been read.
+   */
+  unreadCount?: number;
 }
 
 /** Represents a chat message. */
