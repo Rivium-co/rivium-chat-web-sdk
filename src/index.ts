@@ -43,3 +43,6 @@ export type {
 export { RiviumChatError } from './services/ApiService';
 export type { TokenProvider } from './services/TokenManager';
 export type { Mention, SearchResult, UploadResult } from './services/ApiService';
+
+// SDK identity
+export { SDK_NAME, SDK_VERSION } from './version';

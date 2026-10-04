@@ -1,3 +1,7 @@
+## [0.1.3] - 2026-10-05
+
+- Added: requests send an `X-Rivium-SDK` header (`web/<version>`); `SDK_NAME` and `SDK_VERSION` are exported.
+
 ## [0.1.2] - 2026-09-26
 
 - Added: `lastMessage` and `unreadCount` on `Room`. A chat list can show the

@@ -1,6 +1,7 @@
 import { SDK_CONFIG, type NormalizedConfig } from '../RiviumChatConfig';
 import type { AuthErrorEvent } from '../events/events';
 import type { TokenManager } from './TokenManager';
+import { SDK_HEADER, SDK_HEADER_VALUE } from '../version';
 import type {
   Attachment,
   Message,
@@ -295,6 +296,7 @@ export class ApiService {
       headers: {
         'X-API-Key': this.config.apiKey,
         'X-User-ID': this.config.userId,
+        [SDK_HEADER]: SDK_HEADER_VALUE,
       },
       body: formData,
     });
@@ -350,6 +352,7 @@ export class ApiService {
         'Content-Type': 'application/json',
         'X-API-Key': this.config.apiKey,
         'X-User-ID': this.config.userId,
+        [SDK_HEADER]: SDK_HEADER_VALUE,
       };
       if (token) headers['X-User-Token'] = token;
       const options: RequestInit = { method, headers };
