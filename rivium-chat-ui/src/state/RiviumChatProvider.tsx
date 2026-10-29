@@ -3,7 +3,7 @@ import React, {
   useContext,
   useEffect,
   useState,
-  useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 
@@ -35,6 +35,10 @@ export interface Message {
   reactions: Reaction[];
   isPending?: boolean;
   isFailed?: boolean;
+  /** The id the sending SDK gave the message (offline outbox). */
+  clientMessageId?: string | null;
+  /** Local state: waiting in the client's offline outbox ("Waiting for network…"). */
+  isQueued?: boolean;
 }
 
 export interface Room {
@@ -99,6 +103,24 @@ export interface RiviumChatClient {
   onPresenceChange: (callback: (event: { roomId: string; userId: string; isOnline: boolean }) => void) => () => void;
   onReadReceipt: (callback: (event: { roomId: string; userId: string; lastReadAt: string }) => void) => () => void;
   onSubscriptionState?: (callback: (event: { channel: string; state: string }) => void) => () => void;
+  /** Pin a message (shown in the message menu when available). */
+  pinMessage?(messageId: string): Promise<unknown>;
+  /** Unpin a message. */
+  unpinMessage?(messageId: string): Promise<void>;
+  /** Pin / unpin events from other users and devices. */
+  onMessagePinChanged?: (callback: (event: { messageId: string; roomId: string; pinned?: boolean; isPinned?: boolean; pinnedAt?: Date | string }) => void) => () => void;
+  /** The room's live updates were lost or refused: the screen reloads its history. */
+  onRecoveryFailed?: (callback: (event: { roomId: string; code?: number; reason?: string }) => void) => () => void;
+  /** True when the client was created with `queueOfflineMessages: true`. */
+  readonly queueOfflineMessages?: boolean;
+  /** Messages waiting in the offline outbox (shown as "Waiting for network…"). */
+  getPendingMessages?(roomId?: string): Promise<Message[]>;
+  /** A queued message was stored: the screen replaces its pending copy. */
+  onMessageSent?: (callback: (event: { localId: string; clientMessageId: string; message: Message }) => void) => () => void;
+  /** A queued message left the outbox without being stored: the screen shows Retry. */
+  onMessageFailed?: (callback: (event: { localId: string; clientMessageId: string; roomId: string; error: Error; reason: string }) => void) => () => void;
+  /** Connection state changes, so the screens follow reconnects. */
+  onConnectionStateChange?: (callback: (event: { state: string; error?: Error }) => void) => () => void;
 }
 
 interface RiviumChatContextValue {
@@ -137,8 +159,41 @@ export function RiviumChatProvider({
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<Error | null>(null);
 
+  // Callbacks in refs: a new inline callback on every render must not
+  // disconnect and reconnect the client.
+  const onConnectedRef = useRef(onConnected);
+  const onConnectionErrorRef = useRef(onConnectionError);
+  onConnectedRef.current = onConnected;
+  onConnectionErrorRef.current = onConnectionError;
+
+  // Follow the client's own connection state (also when the app connects it
+  // itself with autoConnect={false}, and across disconnect / connect).
+  useEffect(() => {
+    if (!client.onConnectionStateChange) return;
+    return client.onConnectionStateChange((event) => {
+      switch (event.state) {
+        case 'connected':
+          setIsConnected(true);
+          setIsConnecting(false);
+          setConnectionError(null);
+          break;
+        case 'connecting':
+          setIsConnecting(true);
+          break;
+        case 'disconnected':
+          setIsConnected(false);
+          setIsConnecting(false);
+          break;
+        case 'error':
+          if (event.error) setConnectionError(event.error);
+          break;
+      }
+    });
+  }, [client]);
+
   useEffect(() => {
     if (!autoConnect) return;
+    let active = true;
 
     const connect = async () => {
       setIsConnecting(true);
@@ -146,24 +201,27 @@ export function RiviumChatProvider({
 
       try {
         await client.connect();
+        if (!active) return;
         setIsConnected(true);
-        onConnected?.();
+        onConnectedRef.current?.();
       } catch (error) {
+        if (!active) return;
         const err = error instanceof Error ? error : new Error('Connection failed');
         setConnectionError(err);
-        onConnectionError?.(err);
+        onConnectionErrorRef.current?.(err);
       } finally {
-        setIsConnecting(false);
+        if (active) setIsConnecting(false);
       }
     };
 
     connect();
 
     return () => {
+      active = false;
       client.disconnect();
       setIsConnected(false);
     };
-  }, [client, autoConnect, onConnected, onConnectionError]);
+  }, [client, autoConnect]);
 
   return (
     <RiviumChatContext.Provider

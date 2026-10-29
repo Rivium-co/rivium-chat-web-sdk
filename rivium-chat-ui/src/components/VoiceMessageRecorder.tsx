@@ -36,6 +36,12 @@ export function VoiceMessageRecorder({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<number | null>(null);
+  // Refs, not state: the recorder's onstop runs later and must see the
+  // duration at that moment and the latest callback.
+  const startedAtRef = useRef(0);
+  const durationRef = useRef(0);
+  const onRecordingCompleteRef = useRef(onRecordingComplete);
+  onRecordingCompleteRef.current = onRecordingComplete;
 
   useEffect(() => {
     return () => {
@@ -43,10 +49,24 @@ export function VoiceMessageRecorder({
         clearInterval(intervalRef.current);
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.onstop = null;
         mediaRecorderRef.current.stop();
       }
     };
   }, []);
+
+  const stopRecording = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      durationRef.current = Math.min(Date.now() - startedAtRef.current, maxDuration);
+      mediaRecorderRef.current.stop();
+    }
+
+    setIsRecording(false);
+  }, [maxDuration]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -64,42 +84,30 @@ export function VoiceMessageRecorder({
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach((track) => track.stop());
-        onRecordingComplete(blob, duration);
+        if (chunksRef.current.length === 0) return; // cancelled
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        onRecordingCompleteRef.current(blob, durationRef.current);
       };
 
       mediaRecorder.start();
+      startedAtRef.current = Date.now();
+      durationRef.current = 0;
       setIsRecording(true);
       setDuration(0);
 
       intervalRef.current = window.setInterval(() => {
-        setDuration((prev) => {
-          const next = prev + 100;
-          if (next >= maxDuration) {
-            stopRecording();
-          }
-          return next;
-        });
+        const elapsed = Math.min(Date.now() - startedAtRef.current, maxDuration);
+        setDuration(elapsed);
+        if (elapsed >= maxDuration) {
+          stopRecording();
+        }
       }, 100);
     } catch (err) {
       setError('Microphone access denied');
       console.error('Error starting recording:', err);
     }
-  }, [maxDuration, onRecordingComplete]);
-
-  const stopRecording = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-
-    setIsRecording(false);
-  }, []);
+  }, [maxDuration, stopRecording]);
 
   const cancelRecording = useCallback(() => {
     if (intervalRef.current) {
@@ -108,8 +116,9 @@ export function VoiceMessageRecorder({
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
       chunksRef.current = [];
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.stop();
     }
 
     setIsRecording(false);

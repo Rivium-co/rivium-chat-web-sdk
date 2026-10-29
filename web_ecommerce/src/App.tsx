@@ -9,6 +9,9 @@ import { OrderChatScreen } from './screens/OrderChatScreen';
 
 let riviumPush: RiviumPush | null = null;
 
+/** Your project's public key from Rivium Console, read from `.env.local`. */
+const RIVIUM_API_KEY = import.meta.env.VITE_RIVIUM_API_KEY ?? 'rv_live_YOUR_PUBLIC_KEY';
+
 function AppContent() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<DemoUser | null>(null);
@@ -19,7 +22,7 @@ function AppContent() {
 
     // Initialize RiviumChat client
     const config: RiviumChatConfig = {
-      apiKey: 'rv_live_64e0ada5eeb66e3adf6136337802a5a34713ce4966372854',
+      apiKey: RIVIUM_API_KEY,
       userId: user.id,
       userInfo: {
         displayName: user.name,
@@ -32,7 +35,7 @@ function AppContent() {
     setRiviumChatClient(client);
 
     riviumPush = new RiviumPush({
-      apiKey: 'rv_live_64e0ada5eeb66e3adf6136337802a5a34713ce4966372854',
+      apiKey: RIVIUM_API_KEY,
     });
     riviumPush.register({ userId: user.id });
 

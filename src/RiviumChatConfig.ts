@@ -7,6 +7,7 @@ export const SDK_CONFIG = {
 } as const;
 
 import type { TokenProvider } from './services/TokenManager';
+import type { OutboxStore } from './services/Outbox';
 
 /** Configuration for RiviumChat SDK. */
 export interface RiviumChatConfig {
@@ -33,7 +34,40 @@ export interface RiviumChatConfig {
    * project can disable in Rivium Console.
    */
   tokenProvider?: TokenProvider;
+
+  /**
+   * How long a request to the Chat API may take, in milliseconds, before it
+   * fails with a `RiviumChatError` whose `code` is `'timeout'`.
+   * Default: 30000 (30 seconds).
+   */
+  requestTimeoutMs?: number;
+
+  /**
+   * Keep messages written without network and send them when the connection
+   * is back, in order and never twice. Default: `false` (`sendMessage()`
+   * without network rejects, as before).
+   *
+   * When on, `sendMessage()` sends a `clientMessageId` with every message and,
+   * on a transient failure (no network, timeout, 408, 429, 5xx), returns the
+   * message as pending (`isPending: true`, `id: "local_<clientMessageId>"`)
+   * instead of rejecting. Follow it with the `messageSent` / `messageFailed`
+   * events. A permanent failure (400, 401, 403, 404, 413, ...) still rejects.
+   *
+   * Needs the current Chat API (one that accepts `clientMessageId`).
+   */
+  queueOfflineMessages?: boolean;
+
+  /**
+   * Where the offline outbox keeps its messages (with `queueOfflineMessages`).
+   * Default `'memory'`: kept while the page is open. `'localStorage'` keeps
+   * them across reloads (one key per API key and user), or pass your own
+   * `OutboxStore`. Call `clearPendingMessages()` on sign-out.
+   */
+  outboxStore?: 'memory' | 'localStorage' | OutboxStore;
 }
+
+/** Default for `requestTimeoutMs`. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 /** Internal normalized config type. */
 export interface NormalizedConfig {
@@ -41,6 +75,9 @@ export interface NormalizedConfig {
   userId: string;
   userInfo: Record<string, string>;
   tokenProvider?: TokenProvider;
+  requestTimeoutMs: number;
+  queueOfflineMessages: boolean;
+  outboxStore?: 'memory' | 'localStorage' | OutboxStore;
 }
 
 /** Validate and normalize configuration. */
@@ -57,5 +94,11 @@ export function normalizeConfig(config: RiviumChatConfig): NormalizedConfig {
     userId: config.userId,
     userInfo: config.userInfo ?? {},
     tokenProvider: config.tokenProvider,
+    requestTimeoutMs:
+      typeof config.requestTimeoutMs === 'number' && config.requestTimeoutMs > 0
+        ? config.requestTimeoutMs
+        : DEFAULT_REQUEST_TIMEOUT_MS,
+    queueOfflineMessages: config.queueOfflineMessages === true,
+    outboxStore: config.outboxStore,
   };
 }

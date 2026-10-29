@@ -104,7 +104,22 @@ export function ChatMessageBubble({
       <div className={clsx('flex flex-col', isMe ? 'items-end' : 'items-start')}>
         {/* Reply preview */}
         {message.replyTo && (
-          <ReplyPreview message={message.replyTo} isMe={isMe} />
+          <ReplyPreview
+            message={message.replyTo}
+            isMe={isMe}
+            senderName={mentionDisplayNames?.[message.replyTo.senderUserId]}
+          />
+        )}
+
+        {/* Pinned */}
+        {message.isPinned && (
+          <span
+            aria-label="Pinned"
+            className="text-xs mb-0.5"
+            style={{ color: colors.timestampText }}
+          >
+            📌 Pinned
+          </span>
         )}
 
         {/* Message bubble */}
@@ -185,6 +200,29 @@ export function ChatMessageBubble({
           </div>
         </div>
 
+        {/* Queued in the client's offline outbox: sent when the network is back */}
+        {message.isQueued && message.isPending && !message.isFailed && (
+          <span
+            role="status"
+            className="text-xs mt-1"
+            style={{ color: colors.timestampText }}
+          >
+            Waiting for network…
+          </span>
+        )}
+
+        {/* Failed: retry */}
+        {message.isFailed && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-xs font-medium mt-1"
+            style={{ color: colors.failedMessage, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Retry
+          </button>
+        )}
+
         {/* Reactions */}
         {Object.keys(groupedReactions).length > 0 && (
           <div className="flex gap-1 mt-1 flex-wrap">
@@ -208,7 +246,7 @@ export function ChatMessageBubble({
   );
 }
 
-function ReplyPreview({ message, isMe }: { message: Message; isMe: boolean }) {
+function ReplyPreview({ message, isMe, senderName }: { message: Message; isMe: boolean; senderName?: string }) {
   const { colors } = useRiviumChatTheme();
 
   return (
@@ -227,7 +265,7 @@ function ReplyPreview({ message, isMe }: { message: Message; isMe: boolean }) {
           className="text-xs font-medium"
           style={{ color: isMe ? colors.myMessageBubble : colors.linkText }}
         >
-          {message.senderUserId}
+          {senderName || message.senderUserId}
         </p>
         <p className="text-xs text-gray-500 truncate">{message.content}</p>
       </div>

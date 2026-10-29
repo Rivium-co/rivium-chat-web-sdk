@@ -85,6 +85,11 @@ export interface Message {
   pinnedAt?: string;
   pinnedBy?: string;
   reactions?: Reaction[];
+  /**
+   * The id the sending SDK gave the message (with `queueOfflineMessages`), so
+   * a pending copy can be matched to the stored message.
+   */
+  clientMessageId?: string;
   /** Local state flag for optimistic updates (not persisted) */
   isPending?: boolean;
   /** Local state flag for failed messages (not persisted) */

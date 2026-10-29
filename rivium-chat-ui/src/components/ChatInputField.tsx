@@ -15,6 +15,8 @@ export interface ChatInputFieldProps {
   onEmojiClick?: () => void;
   disabled?: boolean;
   placeholder?: string;
+  /** Names to show instead of user ids (for "Replying to ..."). */
+  userDisplayNames?: Record<string, string>;
   className?: string;
 }
 
@@ -30,6 +32,7 @@ export function ChatInputField({
   onEmojiClick,
   disabled = false,
   placeholder = 'Type a message...',
+  userDisplayNames = {},
   className,
 }: ChatInputFieldProps) {
   const [text, setText] = useState('');
@@ -130,7 +133,7 @@ export function ChatInputField({
           />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium" style={{ color: colors.linkText }}>
-              Replying to {replyingTo.senderUserId}
+              Replying to {userDisplayNames[replyingTo.senderUserId] || replyingTo.senderUserId}
             </p>
             <p className="text-xs text-gray-500 truncate">{replyingTo.content}</p>
           </div>
@@ -150,7 +153,10 @@ export function ChatInputField({
       )}
 
       {/* Input bar */}
-      <div className="flex items-end gap-2 p-2 bg-white border-t border-gray-200">
+      <div
+        className="flex items-end gap-2 p-2 border-t"
+        style={{ backgroundColor: colors.background, borderColor: colors.border }}
+      >
         {/* Attachment button */}
         {onAttachmentClick && (
           <button
@@ -171,8 +177,8 @@ export function ChatInputField({
 
         {/* Text input container */}
         <div
-          className="flex-1 flex items-end gap-2 px-4 py-2 bg-gray-100"
-          style={{ borderRadius: dimensions.inputFieldRadius }}
+          className="flex-1 flex items-end gap-2 px-4 py-2"
+          style={{ borderRadius: dimensions.inputFieldRadius, backgroundColor: colors.surface }}
         >
           {/* Emoji button */}
           {onEmojiClick && (
@@ -202,7 +208,7 @@ export function ChatInputField({
             placeholder={placeholder}
             rows={1}
             className="flex-1 bg-transparent resize-none outline-none text-sm min-h-[24px] max-h-[120px]"
-            style={{ lineHeight: '24px' }}
+            style={{ lineHeight: '24px', color: colors.otherMessageText }}
           />
         </div>
 

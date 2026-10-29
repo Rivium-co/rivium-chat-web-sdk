@@ -37,7 +37,12 @@ export type {
   SubscriptionStateEvent,
   TypingEvent,
   AuthErrorEvent,
+  MessageSentEvent,
+  MessageFailedEvent,
 } from './events/events';
+
+// Offline outbox
+export type { OutboxStore, PendingMessage } from './services/Outbox';
 
 // Errors & Types
 export { RiviumChatError } from './services/ApiService';

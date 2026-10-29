@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 
 /**
  * RiviumChat-specific colors
@@ -19,6 +19,12 @@ export interface RiviumChatColors {
   pendingMessage: string;
   replyBackground: string;
   mentionHighlight: string;
+  /** Screen and input bar background. */
+  background?: string;
+  /** Text field and menu surfaces. */
+  surface?: string;
+  /** Separator lines. */
+  border?: string;
 }
 
 /**
@@ -57,6 +63,9 @@ const defaultLightColors: RiviumChatColors = {
   pendingMessage: '#8E8E93',
   replyBackground: '#F2F2F7',
   mentionHighlight: 'rgba(0, 122, 255, 0.2)',
+  background: '#FFFFFF',
+  surface: '#F2F2F7',
+  border: '#E5E5EA',
 };
 
 const defaultDarkColors: RiviumChatColors = {
@@ -75,6 +84,9 @@ const defaultDarkColors: RiviumChatColors = {
   pendingMessage: '#8E8E93',
   replyBackground: '#1C1C1E',
   mentionHighlight: 'rgba(10, 132, 255, 0.3)',
+  background: '#000000',
+  surface: '#1C1C1E',
+  border: '#38383A',
 };
 
 const defaultDimensions: RiviumChatDimensions = {
@@ -98,7 +110,37 @@ export interface RiviumChatThemeProviderProps {
   children: ReactNode;
   colors?: Partial<RiviumChatColors>;
   dimensions?: Partial<RiviumChatDimensions>;
-  dark?: boolean;
+  /**
+   * `true` dark, `false` light (default), or `'system'` to follow the
+   * device's light / dark setting, live.
+   */
+  dark?: boolean | 'system';
+}
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+/** Whether the system is in dark mode now, following changes. Only listens when `enabled`. */
+function useSystemDark(enabled: boolean): boolean {
+  const read = () =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(DARK_QUERY).matches
+      : false;
+  const [isDark, setIsDark] = useState(() => (enabled ? read() : false));
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(DARK_QUERY);
+    const update = () => setIsDark(query.matches);
+    update();
+    if (query.addEventListener) {
+      query.addEventListener('change', update);
+      return () => query.removeEventListener('change', update);
+    }
+    query.addListener(update); // older Safari
+    return () => query.removeListener(update);
+  }, [enabled]);
+
+  return isDark;
 }
 
 /**
@@ -110,14 +152,16 @@ export function RiviumChatThemeProvider({
   dimensions,
   dark = false,
 }: RiviumChatThemeProviderProps) {
+  const systemDark = useSystemDark(dark === 'system');
+  const isDark = dark === 'system' ? systemDark : dark;
   const theme = useMemo<RiviumChatThemeValue>(() => {
-    const baseColors = dark ? defaultDarkColors : defaultLightColors;
+    const baseColors = isDark ? defaultDarkColors : defaultLightColors;
     return {
       colors: { ...baseColors, ...colors },
       dimensions: { ...defaultDimensions, ...dimensions },
-      isDark: dark,
+      isDark,
     };
-  }, [colors, dimensions, dark]);
+  }, [colors, dimensions, isDark]);
 
   return (
     <RiviumChatThemeContext.Provider value={theme}>

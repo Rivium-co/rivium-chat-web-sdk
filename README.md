@@ -112,6 +112,62 @@ client.on('readReceipt', (event) => {
 });
 ```
 
+### Sending while offline
+
+Messages written without network can wait in an outbox and be sent when the connection is back, in the order they were written and never twice. It is off by default: without it, `sendMessage()` without network rejects as before.
+
+```typescript
+const client = new RiviumChatClient({
+  apiKey: 'rv_live_...',
+  userId: 'user-42',
+  tokenProvider,
+  queueOfflineMessages: true,
+});
+```
+
+With the option on:
+
+- Every message is sent with a `clientMessageId`, so a send that is retried is stored only once.
+- When the message cannot be sent now (no network, timeout, 408, 429, 5xx), `sendMessage()` does not reject: it returns the message as pending (`isPending: true`, `id: "local_<clientMessageId>"`). It is sent when the connection comes back, or earlier on a retry (after 2 s, 4 s, 8 s … at most every 60 s).
+- When the Chat API refuses the message (400, 401, 403, 404, 413, for example the user is not a member of the room), `sendMessage()` rejects as before.
+- A message that waits longer than 24 hours is dropped as failed.
+- Attachments are sent as they are: upload the file first and send its URL.
+- `queueOfflineMessages` needs the current Chat API.
+
+```typescript
+const pending = await client.sendMessage(roomId, 'Order #1001 is ready');
+
+client.onMessageSent(({ localId, clientMessageId, message }) => {
+  // the queued message was stored: replace the pending copy (localId) with message
+});
+
+client.onMessageFailed(({ localId, roomId, reason, error }) => {
+  // reason 'rejected' (the Chat API refused it) or 'expired' (waited over 24 hours)
+});
+
+await client.getPendingMessages(roomId); // messages still waiting, oldest first
+await client.retryPendingMessages();     // send them now
+await client.cancelPendingMessage(pending.id); // remove one (no event)
+await client.clearPendingMessages();     // remove all, also from the store: call it on sign-out
+```
+
+The live `message` event for a queued message still arrives and carries the same `clientMessageId`, so a screen can match it to its pending copy and show it once. `on('messageSent', ...)` and `on('messageFailed', ...)` work too.
+
+**Storage.** The outbox lives in memory by default: it survives a lost network, not a page reload. To keep it across reloads, use `localStorage` (one entry per API key and user; when the browser blocks storage the outbox stays in memory):
+
+```typescript
+const client = new RiviumChatClient({
+  apiKey: 'rv_live_...',
+  userId: 'user-42',
+  queueOfflineMessages: true,
+  outboxStore: 'localStorage',
+});
+```
+
+You can also pass your own store: an object with `load()` and `save(items)` (both may be async).
+
+**UI kit.** With `queueOfflineMessages` on, `ChatScreen` shows a queued message with "Waiting for network…", replaces it when it is sent, and shows Retry when it fails. Without the option, a message that cannot be sent shows Retry as before.
+
 ### Mark Messages as Read
 
 ```typescript
@@ -140,9 +196,30 @@ await client.markAsRead(room.id);
 - `ReadReceipts` - Delivery status indicators (sent, delivered, read)
 - `MessageSearchBar` - Full-text message search
 
+Styles: import the kit's stylesheet once (it contains only the classes the
+components use and no CSS reset), or, if your app uses Tailwind CSS, add the
+kit to your Tailwind `content` instead:
+
+```typescript
+import '@rivium/web-chat-ui/styles.css';
+// or, in tailwind.config.js: content: [..., './node_modules/@rivium/web-chat-ui/dist/**/*.{js,mjs}']
+```
+
+Dark mode: `<RiviumChatThemeProvider dark>` is always dark, `dark="system"`
+follows the device's light / dark setting.
+
 ## Example App
 
 The `web_ecommerce/` directory contains a complete e-commerce chat example built with React and Vite.
+
+To run it, copy `web_ecommerce/.env.example` to `web_ecommerce/.env.local`, set
+`VITE_RIVIUM_API_KEY` to your project's public key from Rivium Console, then:
+
+```bash
+cd web_ecommerce
+npm install
+npm run dev
+```
 
 ## Links
 

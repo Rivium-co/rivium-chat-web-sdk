@@ -1,5 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import { useRiviumChatTheme } from '../theme/RiviumChatTheme';
 
 export const defaultReactions = ['❤️', '👍', '👎', '😂', '😮', '😢'];
 
@@ -16,12 +17,14 @@ export function MessageReactionPicker({
   commonReactions = defaultReactions,
   className,
 }: MessageReactionPickerProps) {
+  const { colors } = useRiviumChatTheme();
   return (
     <div
       className={clsx(
-        'inline-flex items-center gap-1 px-2 py-1 bg-white rounded-full shadow-lg',
+        'inline-flex items-center gap-1 px-2 py-1 rounded-full shadow-lg',
         className
       )}
+      style={{ backgroundColor: colors.background }}
     >
       {commonReactions.map((emoji) => (
         <button

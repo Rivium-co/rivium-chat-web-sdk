@@ -1,6 +1,6 @@
 {
   "name": "@rivium/web-chat-ui",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "RiviumChat UI components for React",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -17,22 +17,30 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --external react",
+    "build": "tsup src/index.ts --format cjs,esm --dts --external react && npm run build:css",
     "dev": "tsup src/index.ts --format cjs,esm --dts --external react --watch",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:css": "tailwindcss -c tailwind.config.js -i src/styles.css -o dist/styles.css --minify",
+    "test": "vitest run"
   },
   "peerDependencies": {
-    "@rivium/web-chat": "^1.0.0",
+    "@rivium/web-chat": ">=0.1.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^14.3.1",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "eslint": "^8.0.0",
+    "jsdom": "^24.1.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.19",
     "tsup": "^8.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
     "clsx": "^2.1.0",

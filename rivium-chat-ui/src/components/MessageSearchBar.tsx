@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { format } from 'date-fns';
 import { useRiviumChatTheme } from '../theme/RiviumChatTheme';
 
 export interface SearchResult {
@@ -46,7 +47,7 @@ export function MessageSearchBar({
   onClose,
   results = [],
   currentIndex = 0,
-  totalResults = 0,
+  totalResults: totalResultsProp,
   isLoading = false,
   placeholder = 'Search messages...',
   onPrevious,
@@ -55,6 +56,7 @@ export function MessageSearchBar({
 }: MessageSearchBarProps) {
   const { colors } = useRiviumChatTheme();
   const [query, setQuery] = useState('');
+  const totalResults = totalResultsProp ?? results.length;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -228,6 +230,43 @@ export function MessageSearchBar({
           )}
         </div>
       )}
+
+      {/* Results */}
+      {query.length > 0 && !isLoading && results.length > 0 && (
+        <div style={{ maxHeight: 240, overflowY: 'auto', marginTop: 8 }}>
+          {results.map((result, index) => (
+            <button
+              key={result.messageId}
+              type="button"
+              onClick={() => onResultSelected?.(result)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '8px',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                background: index === currentIndex ? `${colors.linkText}15` : 'none',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: colors.otherMessageText }}>
+                  {result.senderName ?? ''}
+                </span>
+                <span style={{ fontSize: 11, color: colors.timestampText, flexShrink: 0 }}>
+                  {format(result.timestamp, 'MMM d, HH:mm')}
+                </span>
+              </div>
+              <HighlightedText
+                text={result.content}
+                query={query}
+                style={{ fontSize: 14, color: colors.otherMessageText }}
+              />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -261,7 +300,9 @@ export function HighlightedText({
     return <span className={className} style={style}>{text}</span>;
   }
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  // The query is plain text: escape it so characters like ( or * are matched literally.
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
 
   const defaultHighlightStyle: React.CSSProperties = {
     backgroundColor: `${colors.linkText}30`,

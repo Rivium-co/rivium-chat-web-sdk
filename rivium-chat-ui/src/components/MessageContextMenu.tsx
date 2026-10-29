@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { Message } from '../state/RiviumChatProvider';
+import { useRiviumChatTheme } from '../theme/RiviumChatTheme';
 
 export type MessageAction = 'reply' | 'copy' | 'edit' | 'delete' | 'pin' | 'react';
 
@@ -16,6 +17,16 @@ export interface MessageContextMenuProps {
 const defaultActionsForMe: MessageAction[] = ['reply', 'copy', 'edit', 'delete', 'pin', 'react'];
 const defaultActionsForOther: MessageAction[] = ['reply', 'copy', 'pin', 'react'];
 
+/**
+ * The default actions for `message`: a message that is not on the server yet
+ * (sending or failed) can only be copied, and one without text has no Copy.
+ */
+function actionsFor(message: Message, isMe: boolean): MessageAction[] {
+  const notSent = message.isPending || message.isFailed;
+  const base = notSent ? (['copy'] as MessageAction[]) : isMe ? defaultActionsForMe : defaultActionsForOther;
+  return message.content?.trim() ? base : base.filter((a) => a !== 'copy');
+}
+
 export function MessageContextMenu({
   message,
   isMe,
@@ -24,7 +35,8 @@ export function MessageContextMenu({
   availableActions,
   className,
 }: MessageContextMenuProps) {
-  const actions = availableActions || (isMe ? defaultActionsForMe : defaultActionsForOther);
+  const { colors } = useRiviumChatTheme();
+  const actions = availableActions || actionsFor(message, isMe);
 
   const actionConfig: Record<MessageAction, { icon: React.ReactNode; label: string; destructive?: boolean }> = {
     reply: {
@@ -81,9 +93,10 @@ export function MessageContextMenu({
   return (
     <div
       className={clsx(
-        'bg-white rounded-xl shadow-lg overflow-hidden py-2 min-w-[200px]',
+        'rounded-xl shadow-lg overflow-hidden py-2 min-w-[200px]',
         className
       )}
+      style={{ backgroundColor: colors.background }}
     >
       {actions.map((action, index) => {
         const config = actionConfig[action];
@@ -93,8 +106,9 @@ export function MessageContextMenu({
               onClick={() => onAction(action)}
               className={clsx(
                 'w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 transition-colors',
-                config.destructive ? 'text-red-500' : 'text-gray-700'
+                config.destructive ? 'text-red-500' : undefined
               )}
+              style={config.destructive ? undefined : { color: colors.otherMessageText }}
             >
               {config.icon}
               <span className="text-sm">{config.label}</span>

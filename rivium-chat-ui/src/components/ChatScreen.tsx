@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react';
 import { clsx } from 'clsx';
 import { useChatChannel } from '../hooks/useChatChannel';
 import { useRiviumChatTheme } from '../theme/RiviumChatTheme';
@@ -32,10 +32,12 @@ export function ChatScreen({
   messageBuilder,
   fileUploader,
   onImageClick,
-  userDisplayNames = {},
+  userDisplayNames: userDisplayNamesProp,
   className,
 }: ChatScreenProps) {
   const state = useChatChannel(roomId, currentUserId);
+  // Names from the room's participants; names passed in by the app win.
+  const userDisplayNames = { ...state.displayNames, ...userDisplayNamesProp };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -46,22 +48,49 @@ export function ChatScreen({
   const [isUploading, setIsUploading] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
+  const { colors } = useRiviumChatTheme();
+  // Older pages load only after the list was first shown at the bottom: while
+  // it still sits at the top (before that first scroll) scroll events must not
+  // page back through the whole history.
+  const initialScrollDoneRef = useRef(false);
+  // Distance from the bottom before older messages were added, to keep the
+  // reader's place when they are inserted above.
+  const restoreFromBottomRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+  }, [roomId]);
+
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || state.messages.length === 0) return;
+    if (!initialScrollDoneRef.current) {
+      container.scrollTop = container.scrollHeight;
+      initialScrollDoneRef.current = true;
+      return;
+    }
+    if (restoreFromBottomRef.current !== null) {
+      container.scrollTop = container.scrollHeight - restoreFromBottomRef.current;
+      restoreFromBottomRef.current = null;
+    }
+  }, [state.messages.length]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (!initialScrollDoneRef.current) return;
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [state.messages[0]?.id]);
 
-  // Load more on scroll to top - only when user manually scrolls up
+  // Load more on scroll to top - only when the user scrolls up
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
-    if (!container) return;
+    if (!container || !initialScrollDoneRef.current) return;
 
     // Only trigger load more if the container is scrollable (has enough content)
     // and user has scrolled near the top
     const isScrollable = container.scrollHeight > container.clientHeight;
     if (isScrollable && container.scrollTop < 100 && state.hasMore && !state.isLoadingMore) {
+      restoreFromBottomRef.current = container.scrollHeight - container.scrollTop;
       state.loadMore();
     }
   }, [state]);
@@ -95,7 +124,11 @@ export function ChatScreen({
         setEditingMessage(selectedMessage);
         break;
       case 'pin':
-        // Would pin/unpin
+        if (selectedMessage.isPinned) {
+          await state.unpinMessage(selectedMessage.id);
+        } else {
+          await state.pinMessage(selectedMessage.id);
+        }
         break;
       case 'react':
         setShowReactionPicker(true);
@@ -154,7 +187,10 @@ export function ChatScreen({
   };
 
   return (
-    <div className={clsx('flex flex-col h-full bg-white', className)}>
+    <div
+      className={clsx('flex flex-col h-full', className)}
+      style={{ backgroundColor: colors.background, color: colors.otherMessageText }}
+    >
       {/* Messages area */}
       <div
         ref={messagesContainerRef}
@@ -251,6 +287,7 @@ export function ChatScreen({
           onCancelEdit={() => setEditingMessage(null)}
           onEditMessage={(messageId, content) => state.editMessage(messageId, content)}
           onAttachmentClick={fileUploader ? () => setShowAttachmentPicker(true) : undefined}
+          userDisplayNames={userDisplayNames}
           disabled={state.isInitialLoading || isUploading}
         />
       )}

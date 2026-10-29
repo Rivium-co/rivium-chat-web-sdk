@@ -18,9 +18,21 @@ import type {
 /** Result from a message search operation. */
 export interface SearchResult {
   messages: Message[];
+  /** Number of messages that match the query. */
+  total: number;
+  /** @deprecated Use `total`. Same value. */
   totalCount: number;
+  /** @deprecated Compare `offset + messages.length` with `total`. */
   hasMore: boolean;
 }
+
+/** Message thrown by `uploadFile()` and `updateRoom()`, which the API does not offer. */
+export const UPLOAD_NOT_SUPPORTED =
+  'uploadFile() is not supported: Rivium Chat does not store files. Upload the file to your own storage ' +
+  'and send its URL as an attachment with sendMessage().';
+export const UPDATE_ROOM_NOT_SUPPORTED =
+  'updateRoom() is not supported: rooms cannot be changed from the client SDK. ' +
+  'Set the name and metadata when you create the room.';
 
 /** Result from a file upload operation. */
 export interface UploadResult {
@@ -35,7 +47,13 @@ export interface Mention {
   id: string;
   messageId: string;
   roomId: string;
+  /** The user who was mentioned. */
+  mentionedUserId: string;
+  /** When the mention was made (ISO 8601). */
+  createdAt: string;
+  /** @deprecated Use `mentionedUserId`. Same value. */
   userId: string;
+  /** @deprecated Use `createdAt`. Same value. */
   mentionedAt: string;
   message: Message;
 }
@@ -106,16 +124,19 @@ export class ApiService {
     return this.request<Room>('GET', `/rooms/by-external-id/${encodeURIComponent(externalId)}`);
   }
 
-  /** Update a room. */
+  /**
+   * Not supported: the API has no route to change a room.
+   * @deprecated Always rejects with a `RiviumChatError`.
+   */
   async updateRoom(
-    roomId: string,
-    updates: {
+    _roomId: string,
+    _updates: {
       name?: string;
       metadata?: Record<string, unknown>;
       isActive?: boolean;
     }
   ): Promise<Room> {
-    return this.request<Room>('PATCH', `/rooms/${roomId}`, updates);
+    throw new RiviumChatError(UPDATE_ROOM_NOT_SUPPORTED);
   }
 
   /** Delete a room. */
@@ -143,7 +164,7 @@ export class ApiService {
 
   /** Remove a participant from a room. */
   async removeParticipant(roomId: string, userId: string): Promise<void> {
-    await this.request('DELETE', `/rooms/${roomId}/participants/${userId}`);
+    await this.request('DELETE', `/rooms/${roomId}/participants/${encodeURIComponent(userId)}`);
   }
 
   // ─── Message Operations ──────────────────────────────────────────────
@@ -157,6 +178,8 @@ export class ApiService {
       attachments?: Attachment[];
       replyToId?: string;
       metadata?: Record<string, unknown>;
+      /** Sent only by the offline outbox (`queueOfflineMessages`). */
+      clientMessageId?: string;
     }
   ): Promise<Message> {
     return this.request<Message>('POST', `/rooms/${roomId}/messages`, {
@@ -166,6 +189,7 @@ export class ApiService {
       ...(options?.attachments && { attachments: options.attachments }),
       ...(options?.metadata && { metadata: options.metadata }),
       ...(options?.replyToId && { replyToId: options.replyToId }),
+      ...(options?.clientMessageId && { clientMessageId: options.clientMessageId }),
     });
   }
 
@@ -270,7 +294,18 @@ export class ApiService {
     params.set('q', query);
     if (options?.limit) params.set('limit', String(options.limit));
     if (options?.offset) params.set('offset', String(options.offset));
-    return this.request<SearchResult>('GET', `/rooms/${roomId}/messages/search?${params.toString()}`);
+    const result = await this.request<{ messages?: Message[]; total?: number }>(
+      'GET',
+      `/rooms/${roomId}/messages/search?${params.toString()}`
+    );
+    const messages = result?.messages ?? [];
+    const total = result?.total ?? messages.length;
+    return {
+      messages,
+      total,
+      totalCount: total,
+      hasMore: (options?.offset ?? 0) + messages.length < total,
+    };
   }
 
   /** Get mentions for the current user in a room. */
@@ -279,38 +314,24 @@ export class ApiService {
     params.set('userId', this.config.userId);
     if (options?.limit) params.set('limit', String(options.limit));
     if (options?.offset) params.set('offset', String(options.offset));
-    return this.request<Mention[]>('GET', `/rooms/${roomId}/mentions?${params.toString()}`);
+    const mentions = await this.request<Mention[]>('GET', `/rooms/${roomId}/mentions?${params.toString()}`);
+    // Older releases typed these fields; fill them from what the API sends.
+    return (mentions ?? []).map((m) => ({
+      ...m,
+      userId: m.userId ?? m.mentionedUserId,
+      mentionedAt: m.mentionedAt ?? m.createdAt,
+    }));
   }
 
   // ─── File Upload ───────────────────────────────────────────────────────
 
-  /** Upload a file attachment. */
-  async uploadFile(roomId: string, file: Blob | File, filename?: string): Promise<UploadResult> {
-    const formData = new FormData();
-    formData.append('file', file, filename);
-
-    const url = `${SDK_CONFIG.baseUrl}/api/v1/rooms/${roomId}/upload`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.config.apiKey,
-        'X-User-ID': this.config.userId,
-        [SDK_HEADER]: SDK_HEADER_VALUE,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new RiviumChatError(
-        `HTTP error ${response.status}: ${response.statusText}`,
-        response.status,
-        errorData
-      );
-    }
-
-    return response.json();
+  /**
+   * Not supported: Rivium Chat does not store files. Upload the file to your
+   * own storage and send its URL as an attachment with `sendMessage()`.
+   * @deprecated Always rejects with a `RiviumChatError`.
+   */
+  async uploadFile(_roomId: string, _file: Blob | File, _filename?: string): Promise<UploadResult> {
+    throw new RiviumChatError(UPLOAD_NOT_SUPPORTED);
   }
 
   // ─── Presence ──────────────────────────────────────────────────────
@@ -359,7 +380,7 @@ export class ApiService {
       if (body && method !== 'GET') {
         options.body = JSON.stringify(body);
       }
-      return fetch(url, options);
+      return fetchWithTimeout(url, options, this.config.requestTimeoutMs);
     };
 
     let response: Response;
@@ -424,11 +445,46 @@ async function authErrorCode(response: Response): Promise<string | undefined> {
 export class RiviumChatError extends Error {
   public readonly statusCode?: number;
   public readonly responseData?: string;
+  /** Set when the request failed before an answer: `'timeout'`. */
+  public readonly code?: string;
 
-  constructor(message: string, statusCode?: number, responseData?: string) {
+  constructor(message: string, statusCode?: number, responseData?: string, code?: string) {
     super(message);
     this.name = 'RiviumChatError';
     this.statusCode = statusCode;
     this.responseData = responseData;
+    this.code = code;
+  }
+}
+
+/**
+ * fetch() that gives up after `timeoutMs`: the request is aborted and the
+ * promise rejects with a RiviumChatError (code `'timeout'`), also where
+ * fetch ignores the abort signal.
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+  const timeoutError = new RiviumChatError(`Request timed out after ${timeoutMs / 1000} seconds`, undefined, undefined, 'timeout');
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      // Reject first, then abort: a browser's fetch rejects with AbortError the moment it is aborted, and that must
+      // not win the race. The catch below maps any rejection after the timer fired to the timeout error too.
+      timedOut = true;
+      reject(timeoutError);
+      controller?.abort();
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([
+      fetch(url, controller ? { ...options, signal: controller.signal } : options),
+      timeout,
+    ]);
+  } catch (error) {
+    if (timedOut) throw timeoutError;
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }

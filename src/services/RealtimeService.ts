@@ -18,6 +18,15 @@ import type {
 
 type EventCallback<K extends keyof RiviumChatEventMap> = (event: RiviumChatEventMap[K]) => void;
 
+/**
+ * Unsubscribe codes the client sets itself: 0 = unsubscribe() called,
+ * 2 = client closed. Every other code comes from the server (a refusal or a
+ * server-side unsubscribe).
+ */
+function isClientSideUnsubscribe(code: number | undefined): boolean {
+  return code === undefined || code === 0 || code === 2;
+}
+
 /** Realtime service for RiviumChat using Centrifugo. */
 export class RealtimeService {
   private config: NormalizedConfig;
@@ -35,7 +44,18 @@ export class RealtimeService {
   async connect(): Promise<void> {
     if (this.client) return;
 
-    const token = await this.getToken();
+    let token: string;
+    try {
+      token = await this.getToken();
+    } catch (error) {
+      // No connection without a token (unknown key, token required, API
+      // unreachable, tokenProvider failed): report it like any connection error.
+      this.emit('connectionState', {
+        state: 'error',
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+      throw error;
+    }
 
     this.client = new Centrifuge(SDK_CONFIG.centrifugoUrl, {
       token,
@@ -125,13 +145,14 @@ export class RealtimeService {
     });
   }
 
-  private lastTypingTime = 0;
+  /** When a typing indicator was last published, per room. */
+  private lastTypingTime = new Map<string, number>();
 
-  /** Publish a typing indicator via Centrifugo (throttled to 2 seconds). */
+  /** Publish a typing indicator via Centrifugo (throttled to 2 seconds per room). */
   async publishTyping(roomId: string): Promise<void> {
     const now = Date.now();
-    if (now - this.lastTypingTime < 2000) return;
-    this.lastTypingTime = now;
+    if (now - (this.lastTypingTime.get(roomId) ?? 0) < 2000) return;
+    this.lastTypingTime.set(roomId, now);
 
     const channel = `typing:room_${roomId}`;
     const sub = this.subscriptions.get(channel);
@@ -191,6 +212,21 @@ export class RealtimeService {
     }
   }
 
+  /** Forgets a subscription the server ended, so the next subscribe builds a fresh one. */
+  private dropSubscription(channel: string, sub: Subscription): void {
+    if (this.subscriptions.get(channel) !== sub) return;
+    sub.removeAllListeners();
+    this.client?.removeSubscription(sub);
+    this.subscriptions.delete(channel);
+  }
+
+  /** Drops the subscription when the server refuses or ends it. */
+  private dropWhenRefused(channel: string, sub: Subscription): void {
+    sub.on('unsubscribed', (ctx) => {
+      if (ctx && !isClientSideUnsubscribe(ctx.code)) this.dropSubscription(channel, sub);
+    });
+  }
+
   private subscribeToChatChannel(roomId: string): void {
     const channel = `chat:room_${roomId}`;
     if (this.subscriptions.has(channel)) return;
@@ -218,11 +254,27 @@ export class RealtimeService {
       }
     });
 
-    sub.on('unsubscribed', () => {
+    sub.on('unsubscribed', (ctx) => {
       this.emit('subscriptionState', {
         channel,
+        roomId,
         state: 'unsubscribed',
+        code: ctx?.code,
+        reason: ctx?.reason,
       } as SubscriptionStateEvent);
+
+      // The server refused or ended the subscription (for example: not a
+      // participant of the room). The room is not followed any more: drop the
+      // dead subscription so a later subscribeToRoom() tries again, and tell
+      // the app, which should reload the room or show the refusal.
+      if (ctx && !isClientSideUnsubscribe(ctx.code)) {
+        this.dropSubscription(channel, sub);
+        this.emit('recoveryFailed', {
+          roomId,
+          code: ctx.code,
+          reason: ctx.reason,
+        } as RecoveryFailedEvent);
+      }
     });
 
     sub.on('error', () => {
@@ -248,6 +300,7 @@ export class RealtimeService {
     sub.on('publication', (ctx) => {
       this.handleTypingPublication(roomId, ctx.data);
     });
+    this.dropWhenRefused(channel, sub);
 
     sub.subscribe();
     this.subscriptions.set(channel, sub);
@@ -260,6 +313,8 @@ export class RealtimeService {
     const sub = this.client!.newSubscription(channel, {
       joinLeave: true,
     });
+
+    this.dropWhenRefused(channel, sub);
 
     sub.on('join', (ctx) => {
       this.emit('presence', {
