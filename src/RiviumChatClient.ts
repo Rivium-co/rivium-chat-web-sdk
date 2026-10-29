@@ -65,10 +65,10 @@ export class RiviumChatClient {
     this.realtimeService = new RealtimeService(
       this.config,
       // With a tokenProvider the same user token authenticates REST and the
-      // realtime connection; centrifuge asks again before it expires.
+      // realtime connection; the realtime client asks again before it expires.
       tokens
         ? () => this.realtimeToken(tokens)
-        : () => this.apiService.getCentrifugoToken(this.config.userId, this.config.userInfo),
+        : () => this.apiService.getRealtimeToken(this.config.userId, this.config.userInfo),
     );
     this.realtimeService.on('connectionState', (event) => {
       this.realtimeConnected = event.state === 'connected';

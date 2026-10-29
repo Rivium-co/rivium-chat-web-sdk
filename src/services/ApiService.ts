@@ -15,6 +15,9 @@ import type {
   UnreadSummary,
 } from '../models/types';
 
+/** Chat API route that issues the realtime connection token. */
+const REALTIME_TOKEN_PATH = '/centrifugo/token';
+
 /** Result from a message search operation. */
 export interface SearchResult {
   messages: Message[];
@@ -342,11 +345,11 @@ export class ApiService {
     return new Set(result.online ?? []);
   }
 
-  // ─── Centrifugo Token ───────────────────────────────────────────────
+  // ─── Realtime Token ─────────────────────────────────────────────────
 
-  /** Get a Centrifugo connection token. */
-  async getCentrifugoToken(userId: string, info?: Record<string, string>): Promise<string> {
-    const result = await this.request<{ token: string }>('POST', '/centrifugo/token', {
+  /** Get a realtime connection token. */
+  async getRealtimeToken(userId: string, info?: Record<string, string>): Promise<string> {
+    const result = await this.request<{ token: string }>('POST', REALTIME_TOKEN_PATH, {
       userId,
       ...(info && Object.keys(info).length > 0 ? { info } : {}),
     });

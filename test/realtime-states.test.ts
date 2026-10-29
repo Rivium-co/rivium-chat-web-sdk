@@ -29,7 +29,7 @@ const fake = vi.hoisted(() => {
     presence = vi.fn(async () => ({ clients: {} }));
   }
   const state = { clients: [] as any[] };
-  class FakeCentrifuge extends Emitter {
+  class FakeRealtimeClient extends Emitter {
     subs = new Map<string, FakeSubscription>();
     constructor(public url: string, public options: any) {
       super();
@@ -47,10 +47,10 @@ const fake = vi.hoisted(() => {
       this.subs.delete(sub.channel);
     }
   }
-  return { state, FakeCentrifuge };
+  return { state, FakeRealtimeClient };
 });
 
-vi.mock('centrifuge', () => ({ Centrifuge: fake.FakeCentrifuge }));
+vi.mock('centrifuge', () => ({ Centrifuge: fake.FakeRealtimeClient }));
 
 import { RiviumChatClient } from '../src/RiviumChatClient';
 import type { AuthErrorEvent, ConnectionStateEvent, RecoveryFailedEvent, SubscriptionStateEvent } from '../src/events/events';

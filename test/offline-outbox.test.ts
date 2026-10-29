@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fake = vi.hoisted(() => {
   type Handler = (ctx?: any) => void;
   const state = { clients: [] as any[] };
-  class FakeCentrifuge {
+  class FakeRealtimeClient {
     handlers = new Map<string, Handler[]>();
     constructor(public url: string, public options: any) {
       state.clients.push(this);
@@ -22,9 +22,9 @@ const fake = vi.hoisted(() => {
       throw new Error('not used');
     }
   }
-  return { state, FakeCentrifuge };
+  return { state, FakeRealtimeClient };
 });
-vi.mock('centrifuge', () => ({ Centrifuge: fake.FakeCentrifuge }));
+vi.mock('centrifuge', () => ({ Centrifuge: fake.FakeRealtimeClient }));
 
 import { RiviumChatClient } from '../src/RiviumChatClient';
 import { RiviumChatError } from '../src/services/ApiService';
